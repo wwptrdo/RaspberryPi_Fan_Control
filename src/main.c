@@ -10,16 +10,46 @@
 
 #include "fan.h"
 #include <stdio.h>
+#include <signal.h>
+#include <unistd.h>
 #include <wiringPi.h>
+
+static void signal_handler(int signo)
+{
+	if (signo == SIGCHLD)
+        {       
+                wait(0); //释放僵尸进程 （保留）
+        }
+        else if (signo == SIGINT) //捕获Ctrl+C信号
+        {
+		sys_close_fan();  //关闭风扇管理       
+		printf("已经关闭风扇管理程序！\n");
+                exit(1);
+        }
+}
 
 int main(int argc, char* argv[])
 {
+	if (signal(SIGCHLD, signal_handler) == SIG_ERR)
+        {
+                //show_sys_info("登记信号SIGCHLD出错\n");
+		printf("登记信号SIGCHLD出错！\n");
+                exit(1);
+        }
+	//登记Ctrl+C（第九个信号）
+        if (signal(SIGINT, signal_handler) == SIG_ERR)
+        {
+		printf("登记信号SIGINT出错！\n");
+                exit(1);
+        }
+
+
 	wiringPiSetup();         //wiringPi库初始化
 	
 	/*
 	 *功能：初始化风扇管理
-	 *参数：初始启动的模式、自定义模式下的温度阈值(0-100)、自定义模式下的风扇速度[25-100] */
-	fan_init(CUSTOM,           37,                              52); 
+	 *参数：初始启动的模式、风扇的启动温度阈值(0-100)、风扇的关闭温度阈值(0-100)，自定义模式下的风扇速度[25-100] */
+	fan_init(CUSTOM,           45,                             39,                       52); 
 
 	open_fan();    //开启风扇管理
 
@@ -29,14 +59,6 @@ int main(int argc, char* argv[])
 	{
 		
 		sleep(18);
-
-		printf("切换到自动管理模式!\n");
-		change_fan_mode(AUTOMATIC);
-		
-		sleep(29);
-		
-		printf("切换到自定义模式！\n");
-		change_fan_mode(CUSTOM);
 	}
 
 	return 0;

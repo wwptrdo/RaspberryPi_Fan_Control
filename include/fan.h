@@ -1,5 +1,5 @@
 /*
- * The C-language module that controls the fan on the Raspberry Pi.
+ * The C-program module that controls the fan on the Raspberry Pi.
  *
  * author: wwptrdudu <1348351139@qq.com>
  * github: https://github.com/wwptrdudu
@@ -27,9 +27,9 @@
 
 typedef struct {
 	pthread_t th_fan;          //线程标识符，在此线程中处理风扇的速度控制
-	int threshold;             //自定义模式下的温度阈值，达到此值风扇开启
+	int start_threshold;       //自定义模式下的温度阈值，达到此值风扇开启
+	int stop_threshold;        //自定义模式下的温度阈值，达到此值风扇关闭（注意：开启阈值 > 关闭阈值）
 	int fan_speed;             //风扇转速
-	
 
 	int  fan_switch;           //风扇开关
 	int mode;                  //风扇的运行模式
@@ -37,7 +37,7 @@ typedef struct {
 
 
 
-extern int fan_init(int mode, int threshold, int speed);
+extern int fan_init(int mode, int start_threshold, int stop_threshold, int speed);
 
 extern void open_fan();
 

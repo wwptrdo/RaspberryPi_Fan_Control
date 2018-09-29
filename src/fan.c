@@ -1,13 +1,11 @@
 /*
- * The C-language module that controls the fan on the Raspberry Pi.
+ * The C-program module that controls the fan on the Raspberry Pi.
  *
  * author: wwptrdudu <1348351139@qq.com>
  * github: https://github.com/wwptrdudu
  * QQ: 1348351139
  * data: 2018.09.22
  */
-
-
 
 #include "fan.h"
 #include <stdio.h>
@@ -68,8 +66,6 @@ static int execute_cmd_result(const char *cmd, char *result)
 }
 
 
-
-
 /*
  * 功能：获取系统cpu温度
  * 参数：无
@@ -96,21 +92,33 @@ static void powerful_mode()
 	digitalWrite(FAN_PIN, HIGH);  //始终高电平
 }
 
-static int is_running_custom = FALSE;     //标识位：标识是否正在运行自定义模式
-static int is_running_automatic = FALSE;  //标识位：标识是否正在运行自动模式
+static int is_running_custom = FALSE;     //标识位：标识是否正在运行自定义模式, 防止线程多开
+static int is_running_automatic = FALSE;  //标识位：标识是否正在运行自动模式, 防止线程多开
 
 
+/*
+ * 自定义模式中的主要负责的线程
+ */
 static void* custom_th(void *arg)
 {
 	is_running_custom = TRUE;
-	int powerful = 100;  //风扇最大时,标识为100
+	int powerful = 100;  //风扇最大时,权重标识为100
+	int flag = 0;
 	//PWM调速
 	while(s_fan.mode == CUSTOM && s_fan.fan_switch)
 	{
 		int temp = sys_cpu_temp(); //获取系统CPU温度
 		
-		//如果温度达到了阈值
-		if (temp >= s_fan.threshold)	
+		//如果温度达到了开启风扇的温度阈值, 标识风扇在转, 反之，则停下
+		if (temp >= s_fan.start_threshold)
+		{
+			flag = 1;
+		}
+		if (temp <= s_fan.stop_threshold)
+		{
+			flag = 0;
+		}
+		if (flag)	
 		{
 			//发送50个脉冲
 			int i = 0;
@@ -124,6 +132,7 @@ static void* custom_th(void *arg)
 			}
 			 
 		}
+		
 
 	}
 	is_running_custom = FALSE;
@@ -160,6 +169,24 @@ static void custom_mode()
 }
 
 /*
+ * 自动控制模式中的主管线程 
+ */
+
+static void* automatic_th(void* arg)
+{
+	is_running_automatic = TRUE;  //标识线程只能开一个
+
+        while(s_fan.mode == AUTOMATIC && s_fan.fan_switch)
+        {
+                int temp = sys_cpu_temp(); //获取系统CPU温度
+
+		printf("自动模式尚未实现! CPU温度为：%d\n", temp);
+		sleep(3);
+        }
+        is_running_automatic = FALSE;
+}
+
+/*
  * 自动模式
  */
 static void automatic_mode()
@@ -167,12 +194,21 @@ static void automatic_mode()
 
 	if (s_fan.fan_switch && s_fan.mode == AUTOMATIC && !is_running_custom && !is_running_automatic)
 	{
-		/*
-		 * 挖坑：自动模式还未实现
-		 */
-
-		printf("自动模式还未实现，暂时用强风模式代替!\n");
-		powerful_mode();
+		//设置线程分离属性，以分离状态启动的线程，在线程结束后会自动释放所占有的系统资源。
+                pthread_attr_t attr;
+                pthread_attr_init(&attr);
+                pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+                
+                pthread_t th;
+                int err_h;
+                if (err_h = pthread_create(&th, &attr, automatic_th, (void*)0) != 0)
+                {       
+                        perror("custom_th pthread_create error!");
+                        pthread_attr_destroy(&attr); //销毁线程属性结构体
+                        return ;
+                }
+                
+                pthread_attr_destroy(&attr); //销毁线程属性结构体
 	}
 
 	return;
@@ -182,6 +218,7 @@ static void automatic_mode()
 /*
  * 功能：风扇线程处理函数
  *       调度不同的运行模式
+ * 说明：这个线程在程序启动时运行，直到程序运行结束( CTRL+C )
  */
 static void* fan_server_th(void *arg)
 {
@@ -227,10 +264,15 @@ static void* fan_server_th(void *arg)
 
 /*
  * 功能：初始化风扇阵脚
- * 参数：风扇模式，自定义模式下的温度阈值[0-100]、风扇转速[1-100]
+ * 参数：mode:风扇模式
+ *       start_threshold: 自定义模式下的风扇开启的温度阈值[0-100]
+ *       stop_threshold : 自定义模式下的风扇关闭的温度阈值[0-100]
+ *       speed: 风扇转速[1-100]
+ *       注意：保证start_threshold > stop_threshold
+ * 
  * 返回值：成功返回0，失败返回-1
  */
-int fan_init(int mode, int threshold, int speed)
+int fan_init(int mode, int start_threshold, int stop_threshold, int speed)
 {
 
 	memset(&s_fan, 0, sizeof(Fan));
@@ -249,23 +291,34 @@ int fan_init(int mode, int threshold, int speed)
 		s_fan.mode = mode;
 	} 
 	
-	if (threshold < 0 || threshold > 100 || speed < 25 || speed > 100)
+	if (start_threshold <= stop_threshold)
+	{
+		s_fan.start_threshold = 45;
+		s_fan.stop_threshold =  41;
+		show_sys_info("自定义模式下设置的风扇温度阈值参数有误，已更改为默认数值！\n");
+	}
+
+	if (start_threshold < 0 || start_threshold > 100 || stop_threshold < 0 || stop_threshold > 100 ||speed < 25 || speed > 100)
 	{
 		//传入参数有误，自定义模式下为默认值
-		s_fan.threshold = 42;
-		s_fan.fan_speed = 50;
+		s_fan.start_threshold = 45;
+		s_fan.stop_threshold = 41;
+		s_fan.fan_speed = 51;
+		
 		show_sys_info("自定义模式下设置风扇的参数有误，已更改为默认值！\n");
 	}
 	else
 	{
-		s_fan.threshold = threshold;
+		s_fan.start_threshold = start_threshold;
+		s_fan.stop_threshold = stop_threshold;
 		s_fan.fan_speed = speed;      //自定义模式下的风扇转速  
 	}
 
 	s_fan.fan_switch = FALSE;              //风扇管理默认关闭
 
-	printf("风扇参数设置成功！模式:%d, 自定义模式下温度阈值:%d 风扇转速:%d\n",
-				s_fan.mode, s_fan.threshold, s_fan.fan_speed);
+	printf("风扇参数设置成功！模式:%d, 自定义模式下风扇启动温度阈值:%d 关闭风扇温度阈值:%d 风扇转速:%d\n",
+				s_fan.mode, s_fan.start_threshold, s_fan.stop_threshold, s_fan.fan_speed);
+
 	/*
 	 * 启动风扇控制线程，对风扇进行管理
 	 */
@@ -328,7 +381,7 @@ int change_fan_mode(int mode)
  */
 void sys_close_fan()
 {
-	s_fan.fan_switch = FALSE;
+	close_fan(); 
 	digitalWrite(FAN_PIN, LOW);  //风扇针脚低电平
 }
 
