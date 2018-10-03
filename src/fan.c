@@ -267,7 +267,7 @@ static void* fan_server_th(void *arg)
  * 参数：mode:风扇模式
  *       start_threshold: 自定义模式下的风扇开启的温度阈值[0-100]
  *       stop_threshold : 自定义模式下的风扇关闭的温度阈值[0-100]
- *       speed: 风扇转速[1-100]
+ *       speed: 风扇转速[25-100]
  *       注意：保证start_threshold > stop_threshold
  * 
  * 返回值：成功返回0，失败返回-1

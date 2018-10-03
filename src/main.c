@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 	open_fan();    //开启风扇管理
 
 
-	//测试
+	
 	while(1)
 	{
 		
