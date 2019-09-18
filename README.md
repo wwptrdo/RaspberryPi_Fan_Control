@@ -81,5 +81,5 @@
 
 # Contact me 
 #### If you have any questions, please contact me.
-#### QQ: 1348351139
-#### e-mail: 1348351139@qq.com
+#### QQ:
+#### e-mail: 
