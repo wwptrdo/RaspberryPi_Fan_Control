@@ -19,4 +19,3 @@ $(LIB_PATH)/fan.o: $(SRC_PATH)/fan.c
 
 clean:
 	rm -rf lib/*.o bin/*
-	
