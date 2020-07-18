@@ -109,11 +109,60 @@ static int sys_cpu_temp_open()
 }
 
 /*
- * 强力风扇模式
+ * 功能：开启风扇管理
  */
-static void powerful_mode()
+void open_fan()
 {
-	digitalWrite(FAN_PIN, HIGH); //始终高电平
+	s_fan.fan_switch = TRUE;
+}
+
+/*
+ * 功能：关闭风扇管理 
+ */
+void close_fan()
+{
+	s_fan.fan_switch = FALSE;
+}
+
+/*
+ * 功能：更改风扇模式
+ */
+int change_fan_mode(int mode)
+{
+	if (mode != AUTOMATIC && mode != CUSTOM && mode != POWERFUL)
+	{
+		show_sys_info("ERROR: 风扇更改模式失败, mode参数有误！\n");
+		return -1;
+	}
+	s_fan.mode = mode;
+	return 0;
+}
+
+/*
+ * 功能：系统关闭风扇
+ * 注意：一般在程序退出之前调用
+ */
+void sys_close_fan()
+{
+	close_fan();
+	digitalWrite(FAN_PIN, LOW); //风扇针脚低电平
+}
+
+/*
+ * 自动控制模式中的主管线程 
+ */
+static void *automatic_th(void *arg)
+{
+	is_running_automatic = TRUE; //标识线程只能开一个
+
+	while (s_fan.mode == AUTOMATIC && s_fan.fan_switch)
+	{
+		int temp = sys_cpu_temp(); //获取系统CPU温度
+
+		printf("自动模式尚未实现! CPU温度为：%d\n", temp);
+		sleep(3);
+	}
+	is_running_automatic = FALSE;
 }
 
 /*
@@ -122,12 +171,12 @@ static void powerful_mode()
 static void *custom_th(void *arg)
 {
 	is_running_custom = TRUE;
-	int powerful = 100; //风扇最大时,权重标识为100
+	int powerful = 100; //风扇最大时,权重标识为 100
 	int flag = 0;
-	//PWM调速
+	//PWM 调速
 	while (s_fan.mode == CUSTOM && s_fan.fan_switch)
 	{
-		int temp = sys_cpu_temp(); //获取系统CPU温度
+		int temp = sys_cpu_temp(); //获取系统 CPU 温度
 
 		//如果温度达到了开启风扇的温度阈值, 标识风扇在转, 反之，则停下
 		if (temp >= s_fan.start_threshold)
@@ -158,6 +207,14 @@ static void *custom_th(void *arg)
 }
 
 /*
+ * 强力风扇模式
+ */
+static void powerful_mode()
+{
+	digitalWrite(FAN_PIN, HIGH); //始终高电平
+}
+
+/*
  * 创建一个线程，根据模式启动对风扇转速进行调整 
  */
 static void fan_server_th_init(void *mode_func)
@@ -180,52 +237,6 @@ static void fan_server_th_init(void *mode_func)
 
 		pthread_attr_destroy(&attr); //销毁线程属性结构体
 	}
-	return;
-}
-
-/*
- * 自动控制模式中的主管线程 
- */
-
-static void *automatic_th(void *arg)
-{
-	is_running_automatic = TRUE; //标识线程只能开一个
-
-	while (s_fan.mode == AUTOMATIC && s_fan.fan_switch)
-	{
-		int temp = sys_cpu_temp(); //获取系统CPU温度
-
-		printf("自动模式尚未实现! CPU温度为：%d\n", temp);
-		sleep(3);
-	}
-	is_running_automatic = FALSE;
-}
-
-/*
- * 自动模式
- */
-static void automatic_mode()
-{
-
-	if (s_fan.fan_switch && s_fan.mode == AUTOMATIC && !is_running_custom && !is_running_automatic)
-	{
-		//设置线程分离属性，以分离状态启动的线程，在线程结束后会自动释放所占有的系统资源。
-		pthread_attr_t attr;
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-		pthread_t th;
-		int err_h;
-		if (err_h = pthread_create(&th, &attr, automatic_th, (void *)0) != 0)
-		{
-			perror("custom_th pthread_create error!");
-			pthread_attr_destroy(&attr); //销毁线程属性结构体
-			return;
-		}
-
-		pthread_attr_destroy(&attr); //销毁线程属性结构体
-	}
-
 	return;
 }
 
@@ -306,7 +317,7 @@ int fan_init(int mode, int start_threshold, int stop_threshold, int speed)
 	{
 		s_fan.start_threshold = 45;
 		s_fan.stop_threshold = 41;
-		show_sys_info("自定义模式下设置的风扇温度阈值参数有误，已更改为默认数值！\n");
+		show_sys_info("风扇温度阈值参数有误，已更改为默认数值！\n");
 	}
 
 	if (start_threshold < 0 || start_threshold > 100 || stop_threshold < 0 || stop_threshold > 100 || speed < 25 || speed > 100)
@@ -316,7 +327,7 @@ int fan_init(int mode, int start_threshold, int stop_threshold, int speed)
 		s_fan.stop_threshold = 41;
 		s_fan.fan_speed = 51;
 
-		show_sys_info("自定义模式下设置风扇的参数有误，已更改为默认值！\n");
+		show_sys_info("设置风扇的参数有误，已更改为默认值！\n");
 	}
 	else
 	{
@@ -349,44 +360,4 @@ int fan_init(int mode, int start_threshold, int stop_threshold, int speed)
 
 	pthread_attr_destroy(&attr); //销毁线程属性结构体
 	return 0;
-}
-
-/*
- * 功能：开启风扇管理
- */
-void open_fan()
-{
-	s_fan.fan_switch = TRUE;
-}
-
-/*
- * 功能：关闭风扇管理 
- */
-void close_fan()
-{
-	s_fan.fan_switch = FALSE;
-}
-
-/*
- * 功能：更改风扇模式
- */
-int change_fan_mode(int mode)
-{
-	if (mode != AUTOMATIC && mode != CUSTOM && mode != POWERFUL)
-	{
-		show_sys_info("ERROR: 风扇更改模式失败, mode参数有误！\n");
-		return -1;
-	}
-	s_fan.mode = mode;
-	return 0;
-}
-
-/*
- * 功能：系统关闭风扇
- * 注意：一般在程序退出之前调用
- */
-void sys_close_fan()
-{
-	close_fan();
-	digitalWrite(FAN_PIN, LOW); //风扇针脚低电平
 }
