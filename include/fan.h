@@ -27,9 +27,16 @@
 typedef struct
 {
 	pthread_t th_fan;	 //线程标识符，在此线程中处理风扇的速度控制
+	int keep_threshold;  //目的温度，旨在将树莓派温度控制在此温度
 	int start_threshold; //温度阈值，达到此值风扇开启
 	int stop_threshold;	 //温度阈值，达到此值风扇关闭（注意：开启阈值 > 关闭阈值）
 	int fan_speed;		 //风扇转速
+
+	//标识位：标识是否正在运行该模式, 防止线程多开
+	bool is_running_automatic;
+	bool is_running_silence;
+	bool is_running_custom;
+	bool is_running_powerful;
 
 	int fan_switch; //风扇开关
 	int mode;		//风扇的运行模式

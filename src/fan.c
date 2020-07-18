@@ -17,14 +17,6 @@
 static Fan s_fan;
 
 /*
- *标识位：标识是否正在运行该模式, 防止线程多开
- */
-static int is_running_automatic = FALSE;
-static int is_running_silence 	= FALSE;
-static int is_running_custom 	= FALSE;
-static int is_running_powerful 	= FALSE;
-
-/*
  * 日志
  */
 static void show_sys_info(char *str)
@@ -156,8 +148,8 @@ void sys_close_fan()
  */
 bool check_is_running_flag()
 {
-	if (is_running_silence == FALSE && is_running_automatic	== FALSE &&
-		is_running_custom  == FALSE && is_running_powerful	== FALSE)
+	if (s_fan.is_running_silence == FALSE && s_fan.is_running_powerful == FALSE &&
+		s_fan.is_running_custom == FALSE && s_fan.is_running_automatic == FALSE)
 	{
 		return TRUE;
 	}
@@ -169,16 +161,35 @@ bool check_is_running_flag()
  */
 static void *automatic_th(void *arg)
 {
-	is_running_automatic = TRUE; //标识线程只能开一个
+	unsigned int run_time_delay = 0;
+	s_fan.is_running_automatic = TRUE; //标识线程只能开一个
 
 	while (s_fan.mode == AUTOMATIC && s_fan.fan_switch)
 	{
-		int temp = sys_cpu_temp(); //获取系统CPU温度
+		int temp = sys_cpu_temp(); //获取系统 CPU 温度
 
-		printf("自动模式尚未实现! CPU温度为：%d\n", temp);
-		sleep(3);
+		if (temp > s_fan.keep_threshold + 1) {
+			if (run_time_delay < 200) {
+				run_time_delay += 1
+			}
+		}
+		else if (temp < s_fan.keep_threshold - 1) {
+			if (run_time_delay > 0) {
+				run_time_delay -= 1
+			}
+		}
+		
+		for (int i = 0; i < 5; i++)
+		{
+			digitalWrite(FAN_PIN, HIGH);
+			delay(run_time_delay);
+			digitalWrite(FAN_PIN, LOW);
+			delay(200 - run_time_delay);
+		}
 	}
 	is_running_automatic = FALSE;
+
+	return (void *)0;
 }
 
 /*
