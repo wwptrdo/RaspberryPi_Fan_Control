@@ -16,10 +16,13 @@
 
 static Fan s_fan;
 
-static int is_running_automatic = FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
-static int is_running_silence 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
-static int is_running_custom 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
-static int is_running_powerful 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
+/*
+ *标识位：标识是否正在运行该模式, 防止线程多开
+ */
+static int is_running_automatic = FALSE;
+static int is_running_silence 	= FALSE;
+static int is_running_custom 	= FALSE;
+static int is_running_powerful 	= FALSE;
 
 /*
  * 日志
@@ -149,6 +152,19 @@ void sys_close_fan()
 }
 
 /*
+ * 检测线程是否开启，防止线程多开
+ */
+bool check_is_running_flag()
+{
+	if (is_running_silence == FALSE && is_running_automatic	== FALSE &&
+		is_running_custom  == FALSE && is_running_powerful	== FALSE)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+
+/*
  * 自动控制模式中的主管线程 
  */
 static void *automatic_th(void *arg)
@@ -217,9 +233,9 @@ static void powerful_mode()
 /*
  * 创建一个线程，根据模式启动对风扇转速进行调整 
  */
-static void fan_server_th_init(void *mode_func)
+static void fan_server_th_start(void *mode_func)
 {
-	if (s_fan.fan_switch && s_fan.mode == CUSTOM && !is_running_custom && !is_running_automatic)
+	if (s_fan.fan_switch && s_fan.mode == CUSTOM && check_is_running_flag())
 	{
 		//设置线程分离属性，以分离状态启动的线程，在线程结束后会自动释放所占有的系统资源。
 		pthread_attr_t attr;
@@ -259,13 +275,13 @@ static void *fan_server_th(void *arg)
 			digitalWrite(FAN_PIN, LOW);
 			sleep(1);
 		}
-		else if (s_fan.mode == CUSTOM)
-		{
-			fan_server_th_init(custom_th);
-		}
 		else if (s_fan.mode == AUTOMATIC)
 		{
-			automatic_mode();
+			fan_server_th_start(automatic_th);
+		}
+		else if (s_fan.mode == CUSTOM)
+		{
+			fan_server_th_start(custom_th);
 		}
 		else if (s_fan.mode == POWERFUL)
 		{
