@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Iinclude -lpthread -lwiringPi
+CFLAGS = -Iinclude -lpthread -lwiringPi -lm
 
 
 TOP_PATH = $(shell pwd)

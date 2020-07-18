@@ -33,21 +33,23 @@ typedef struct
 	int fan_speed;		 //风扇转速
 
 	//标识位：标识是否正在运行该模式, 防止线程多开
-	bool is_running_automatic;
-	bool is_running_silence;
-	bool is_running_custom;
-	bool is_running_powerful;
+	int is_running_automatic;
+	int is_running_silence;
+	int is_running_custom;
+	int is_running_powerful;
 
 	int fan_switch; //风扇开关
 	int mode;		//风扇的运行模式
 } Fan;
 
-extern int fan_init(int mode, int start_threshold, int stop_threshold, int speed);
+extern int fan_init(int mode);
 
 extern void open_fan();
 
 extern void close_fan();
 
 extern void sys_close_fan();
+
+extern int sys_cpu_temp();
 
 #endif
