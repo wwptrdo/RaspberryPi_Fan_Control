@@ -17,8 +17,9 @@
 #define FAN_PIN		2 //风扇的控制信号阵脚为GPIO2
 
 #define AUTOMATIC 	0
-#define CUSTOM 		1
-#define POWERFUL 	2
+#define SILENCE 	1
+#define CUSTOM 		2
+#define POWERFUL 	3
 
 #define TRUE 		1
 #define FALSE 		0
@@ -26,8 +27,8 @@
 typedef struct
 {
 	pthread_t th_fan;	 //线程标识符，在此线程中处理风扇的速度控制
-	int start_threshold; //自定义模式下的温度阈值，达到此值风扇开启
-	int stop_threshold;	 //自定义模式下的温度阈值，达到此值风扇关闭（注意：开启阈值 > 关闭阈值）
+	int start_threshold; //温度阈值，达到此值风扇开启
+	int stop_threshold;	 //温度阈值，达到此值风扇关闭（注意：开启阈值 > 关闭阈值）
 	int fan_speed;		 //风扇转速
 
 	int fan_switch; //风扇开关

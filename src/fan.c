@@ -16,6 +16,11 @@
 
 static Fan s_fan;
 
+static int is_running_automatic = FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
+static int is_running_silence 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
+static int is_running_custom 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
+static int is_running_powerful 	= FALSE; //标识位：标识是否正在运行该模式, 防止线程多开
+
 /*
  * 日志
  */
@@ -70,11 +75,37 @@ static int sys_cpu_temp()
 	char buff[CMD_RESULT_LEN] = {0};
 	if (execute_cmd_result("cat /sys/class/thermal/thermal_zone0/temp", buff) < 0)
 	{
-		show_sys_info("错误：执行获取cpu温度命令失败！\n");
+		show_sys_info("错误：执行获取 cpu 温度命令失败！\n");
 		return -1;
 	}
 	double ret = atof(buff) / 1000.0;
 	return (int)ret;
+}
+
+static int sys_cpu_temp_open()
+{
+	FILE *fp = NULL;
+
+	if (fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r"))
+	{
+		show_sys_info("错误：打开 cpu 温度文件失败！\n");
+		return -1;
+	}
+	else
+	{
+		char buff[64] = {0};
+		if (fgets(buff, 64, fp) != NULL)
+		{
+			double ret = ceil(buff) / 1000.0;
+			return (int)ret;
+		}
+		else
+		{
+			show_sys_info("错误：读取 cpu 温度失败！\n");
+			return -1;
+		}
+	}
+	return -1;
 }
 
 /*
@@ -84,9 +115,6 @@ static void powerful_mode()
 {
 	digitalWrite(FAN_PIN, HIGH); //始终高电平
 }
-
-static int is_running_custom = FALSE;	 //标识位：标识是否正在运行自定义模式, 防止线程多开
-static int is_running_automatic = FALSE; //标识位：标识是否正在运行自动模式, 防止线程多开
 
 /*
  * 自定义模式中的主要负责的线程
@@ -112,11 +140,11 @@ static void *custom_th(void *arg)
 		}
 		if (flag)
 		{
-			//发送50个脉冲
+			//发送 50 个脉冲
 			int i = 0;
 			for (; i < 50; i++)
 			{
-				//如果调节声音和风扇的大小，可以更改1000和800两个数字，做微调即可！
+				//如果调节声音和风扇的大小，可以更改 1000 和 800 两个数字，做微调即可！
 				digitalWrite(FAN_PIN, HIGH);
 				delayMicroseconds(s_fan.fan_speed * 1000);
 				digitalWrite(FAN_PIN, LOW);
@@ -130,9 +158,9 @@ static void *custom_th(void *arg)
 }
 
 /*
- * 自定义模式: 创建一个线程，根据自定义的参数对风扇转速进行调整 
+ * 创建一个线程，根据模式启动对风扇转速进行调整 
  */
-static void custom_mode()
+static void fan_server_th_init(void *mode_func)
 {
 	if (s_fan.fan_switch && s_fan.mode == CUSTOM && !is_running_custom && !is_running_automatic)
 	{
@@ -143,7 +171,7 @@ static void custom_mode()
 
 		pthread_t th;
 		int err_h;
-		if (err_h = pthread_create(&th, &attr, custom_th, (void *)0) != 0)
+		if (err_h = pthread_create(&th, &attr, mode_func, (void *)0) != 0)
 		{
 			perror("custom_th pthread_create error!");
 			pthread_attr_destroy(&attr); //销毁线程属性结构体
@@ -203,7 +231,7 @@ static void automatic_mode()
 
 /*
  * 功能：风扇线程处理函数
- *       调度不同的运行模式
+ *      调度不同的运行模式
  * 说明：这个线程在程序启动时运行，直到程序运行结束( CTRL+C )
  */
 static void *fan_server_th(void *arg)
@@ -222,7 +250,7 @@ static void *fan_server_th(void *arg)
 		}
 		else if (s_fan.mode == CUSTOM)
 		{
-			custom_mode();
+			fan_server_th_init(custom_th);
 		}
 		else if (s_fan.mode == AUTOMATIC)
 		{
@@ -247,13 +275,13 @@ static void *fan_server_th(void *arg)
 
 /*
  * 功能：初始化风扇阵脚
- * 参数：mode:风扇模式
- *       start_threshold: 自定义模式下的风扇开启的温度阈值[0-100]
- *       stop_threshold : 自定义模式下的风扇关闭的温度阈值[0-100]
- *       speed: 风扇转速[25-100]
- *       注意：保证start_threshold > stop_threshold
+ * 参数： mode:风扇模式
+ *       start_threshold: 自定义模式下的风扇开启的温度阈值 [0-100]
+ *       stop_threshold : 自定义模式下的风扇关闭的温度阈值 [0-100]
+ *       speed: 风扇转速 [25-100]
+ *       注意：保证 start_threshold > stop_threshold
  * 
- * 返回值：成功返回0，失败返回-1
+ * 返回值：成功返回 0，失败返回 -1
  */
 int fan_init(int mode, int start_threshold, int stop_threshold, int speed)
 {

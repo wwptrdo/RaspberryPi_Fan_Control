@@ -27,6 +27,26 @@ static void signal_handler(int signo)
 	}
 }
 
+void show_menu()
+{
+	printf("\n选择风扇运行模式：\n
+		   0 - 自动模式\n
+		   1 - 静音模式\n
+		   2 - 强力模式\n
+		   3 - 自定义模式\n\n");
+}
+
+int mode_choose()
+{
+	int mode = 0;
+
+	show_menu();
+	fflush(stdin);
+	scanf("%d", &mode);
+
+	return mode;
+}
+
 int main(int argc, char *argv[])
 {
 	if (signal(SIGCHLD, signal_handler) == SIG_ERR)
@@ -42,20 +62,20 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	wiringPiSetup(); //wiringPi库初始化
+	wiringPiSetup(); // wiringPi 库初始化
 
 	/*
 	 *功能：初始化风扇管理
 	 *参数：初始启动的模式、风扇的启动温度阈值(0-100)、风扇的关闭温度阈值(0-100)，自定义模式下的风扇速度[25-100]
 	*/
-	fan_init(CUSTOM, 45, 39, 52);
+	fan_init(mode_choose(), 45, 39, 52);
 
 	open_fan(); //开启风扇管理
 
 	while (1)
 	{
 
-		sleep(18);
+		sleep(60);
 	}
 
 	return 0;
