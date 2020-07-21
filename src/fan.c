@@ -77,10 +77,11 @@ int sys_cpu_temp()
 		show_sys_info("错误：执行获取 cpu 温度命令失败！\n");
 		return -1;
 	}
-	double ret = atof(buff) / 1000.0;
-	return (int)ret;
+	int ret = ceil(atof(buff) / 1000.0);
+	return ret;
 }
 
+// 未按预期工作
 int sys_cpu_temp_open()
 {
 	int fp = 0;
@@ -130,7 +131,7 @@ void close_fan()
  */
 int change_fan_mode(int mode)
 {
-	if (mode != AUTOMATIC && mode != CUSTOM && mode != POWERFUL)
+	if (mode != AUTOMATIC && mode != CUSTOM && mode != POWERFUL && mode != SILENCE)
 	{
 		show_sys_info("ERROR: 风扇更改模式失败, mode参数有误！\n");
 		return -1;
@@ -163,36 +164,41 @@ int check_is_running_flag()
 }
 
 /*
- * 自动控制模式中的主管线程 
+ * 自动控制模式中的主管线程
+ * 根据实时温度控制风扇运行时间
  */
 void *automatic_th(void *arg)
 {
+	unsigned int period_delay = 200; // 运行时间周期(ms)，即每 period_delay 毫秒检测一次
 	unsigned int run_time_delay = 0;
+	unsigned int run_time_step = 20; // 运行时间步长
+	unsigned int last_temp = sys_cpu_temp();
+
 	s_fan.is_running_automatic = TRUE; //标识线程只能开一个
 
 	while (s_fan.mode == AUTOMATIC && s_fan.fan_switch)
 	{
-		int temp = sys_cpu_temp(); //获取系统 CPU 温度
+		unsigned int temp = sys_cpu_temp(); //获取系统 CPU 温度
 
 		if (temp > s_fan.keep_threshold) {
-			if (run_time_delay < 200) {
-				run_time_delay += 10;
+			if (temp >= last_temp) {
+				run_time_delay += (run_time_delay < period_delay) ? run_time_step : 0;
 			}
 		}
 		else if (temp < s_fan.keep_threshold) {
-			if (run_time_delay > 0) {
-				run_time_delay -= 10;
+			if (temp <= last_temp) {
+				run_time_delay -= (run_time_delay > run_time_step) ? run_time_step : 0;
 			}
 		}
 		
-		for (int i = 0; i < 5; i++)
-		{
-			digitalWrite(FAN_PIN, HIGH);
-			delay(run_time_delay);
-			digitalWrite(FAN_PIN, LOW);
-			delay(200 - run_time_delay);
-		}
+		digitalWrite(FAN_PIN, HIGH);
+		delay(run_time_delay);
+		digitalWrite(FAN_PIN, LOW);
+		delay(period_delay - run_time_delay);
+		
+		last_temp = temp;
 	}
+
 	s_fan.is_running_automatic = FALSE;
 
 	return (void *)0;

@@ -75,7 +75,8 @@ int main(int argc, char *argv[])
 
 	while (1)
 	{
-		printf("当前温度: %d °C\n", sys_cpu_temp());
+		printf("当前温度: %d °C\r", sys_cpu_temp());
+		fflush(stdout);
 		sleep(3);
 	}
 
