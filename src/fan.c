@@ -180,12 +180,12 @@ void *automatic_th(void *arg)
 	{
 		unsigned int temp = sys_cpu_temp(); //获取系统 CPU 温度
 
-		if (temp > s_fan.keep_threshold) {
+		if (temp > s_fan.keep_threshold + 1) {
 			if (temp >= last_temp) {
 				run_time_delay += (run_time_delay < period_delay) ? run_time_step : 0;
 			}
 		}
-		else if (temp < s_fan.keep_threshold) {
+		else if (temp < s_fan.keep_threshold - 1) {
 			if (temp <= last_temp) {
 				run_time_delay -= (run_time_delay > run_time_step) ? run_time_step : 0;
 			}
