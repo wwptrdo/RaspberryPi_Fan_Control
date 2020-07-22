@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Iinclude -lpthread -lwiringPi
+CFLAGS = -Iinclude -lpthread -lwiringPi -lm
 
 
 TOP_PATH = $(shell pwd)
@@ -19,4 +19,3 @@ $(LIB_PATH)/fan.o: $(SRC_PATH)/fan.c
 
 clean:
 	rm -rf lib/*.o bin/*
-	
