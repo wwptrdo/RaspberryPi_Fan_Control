@@ -97,7 +97,7 @@ int sys_cpu_temp_open()
 		if (read(fp, buff, 128) >= 0)
 		{
 			printf("%d\n", atoi(buff));
-			double ret = ceil(atof(buff) / 1000.0);
+			double ret = atof(buff) / 1000.0;
 			return (int)ret;
 		}
 		else
