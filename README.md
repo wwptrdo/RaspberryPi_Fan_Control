@@ -40,7 +40,11 @@
 图4：焊接图示
 
 ## 2：编译
-运行以下命令：
+安装wiringPi:
+git clone https://github.com/WiringPi/WiringPi
+./build
+
+编译该源码：
 
 	git clone https://github.com/wwptrdudu/RaspberryPi_Fan_Control.git
 	cd  RaspberryPi_Fan_Control
